@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  AGENT
+  AGENT_PREMIUM
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  ROOM
+  OFFICE
+  LAND
+}
+
+enum ListingType {
+  RENT
+  SALE
+}
+
+enum AgentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String       @id @default(uuid())
+  email              String       @unique
+  firstName          String
+  lastName           String
+  phoneNumber        String?
+  organization       String?
+  role               UserRole     @default(USER)
+  agentStatus        AgentStatus?
+  monthlyPosts       Int          @default(0)
+  lastPostReset      DateTime?
+  isPremium          Boolean      @default(false)
+  password           String
+  verificationCode   String?
+  verificationExpiry DateTime?
+  isVerified         Boolean      @default(false)
+  image              String?
+  emailVerified      DateTime?
+
+  // Relations
+  listings         Listing[]
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  accounts         Account[]
+  sessions         Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Listing {
+  id          String       @id @default(uuid())
+  title       String
+  description String
+  price       Float
+  type        PropertyType
+  listingType ListingType
+  location    String
+  address     String
+  images      String[]
+  features    String[]
+  available   Boolean      @default(true)
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  messages    Message[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  content    String
+  senderId   String
+  receiverId String
+  propertyId String?
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  property   Listing? @relation(fields: [propertyId], references: [id])
+  createdAt  DateTime @default(now())
+  read       Boolean  @default(false)
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  amount    Float
+  status    String
+  type      String
+  reference String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
