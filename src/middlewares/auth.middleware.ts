@@ -15,7 +15,7 @@ interface JwtPayload {
 }
 
 type CustomRequestHandler = (
-    req: AuthRequest,
+    req: Request,
     res: Response,
     next: NextFunction
 ) => Promise<void> | void;
@@ -30,14 +30,21 @@ export const authMiddleware: CustomRequestHandler = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-        const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+        
+        const user = await prisma.user.findUnique({ 
+            where: { id: decoded.id } 
+        });
 
         if (!user) {
             res.status(401).json({ message: 'Utilisateur non trouvé' });
             return;
         }
 
-        req.user = user;
+        req.user = {
+            id: user.id,
+            email: user.email,
+            role: user.role
+        };
         next();
     } catch (error) {
         res.status(401).json({ message: 'Token invalide' });

@@ -54,35 +54,54 @@ export class ListingController {
 
   async create(req: AuthRequest, res: Response) {
     try {
-      const uploadMiddleware = upload.array('images', 10);
+      console.log("Données reçues:", req.body);
+      console.log("User:", req.user);
 
-      uploadMiddleware(req, res, async (err) => {
-        if (err) {
-          return res.status(400).json({ error: err.message });
-        }
+      const { title, description, price, type, listingType, location, address, features }: ListingInput = req.body;
+      const userId = req.user?.id;
 
-        const files = req.files as Express.Multer.File[];
-        const listingData = JSON.parse(req.body.data);
-
-        // Upload des images vers Cloudinary
-        const imageUrls = await Promise.all(
-          files.map(file => UploadService.uploadImage(file))
-        );
-
-        // Création de l'annonce avec les URLs des images
-        const listing = await prisma.listing.create({
-          data: {
-            ...listingData,
-            images: imageUrls,
-            userId: req.user!.id
-          }
+      if (!userId) {
+        return res.status(401).json({ 
+          message: 'Utilisateur non authentifié',
+          details: 'Token manquant ou invalide'
         });
+      }
 
-        res.status(201).json(listing);
+      // Vérification des données requises
+      if (!title || !description || !price || !type || !listingType || !location || !address) {
+        return res.status(400).json({ 
+          message: 'Données manquantes',
+          details: 'Tous les champs obligatoires doivent être remplis'
+        });
+      }
+
+      // Conversion du prix en nombre
+      const numericPrice = parseFloat(price.toString());
+
+      const listing = await prisma.listing.create({
+        data: {
+          title,
+          description,
+          price: numericPrice,
+          type,
+          listingType,
+          location,
+          address,
+          features: features || [],
+          images: [], // Pour l'instant, on initialise un tableau vide
+          userId,
+          available: true
+        },
       });
+
+      console.log("Annonce créée:", listing);
+      res.status(201).json(listing);
     } catch (error) {
-      console.error('Erreur lors de la création de l\'annonce:', error);
-      res.status(500).json({ error: 'Erreur lors de la création de l\'annonce' });
+      console.error('Erreur détaillée lors de la création de l\'annonce:', error);
+      res.status(500).json({ 
+        message: 'Erreur lors de la création de l\'annonce',
+        details: error instanceof Error ? error.message : 'Erreur inconnue'
+      });
     }
   }
 
@@ -176,7 +195,7 @@ export class ListingController {
 
         // Vérifier les permissions
         if (existingListing.userId !== req.user!.id && req.user!.role !== UserRole.ADMIN) {
-          return res.status(403).json({ error: 'Non autoris��' });
+          return res.status(403).json({ error: 'Non autorisé' });
         }
 
         // Upload des nouvelles images si présentes
