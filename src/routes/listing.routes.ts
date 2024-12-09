@@ -1,30 +1,15 @@
-import { Router, RequestHandler } from 'express';
-import { ListingController } from '../controllers/listing.controller';
-import { authMiddleware, isAgent } from '../middlewares/auth.middleware';
+import express from 'express';
+import { getListingById, getListingsByAgent, removeListing, getPublicListings } from '../controllers/listing.controller';
+import { isAuthenticated } from '../middlewares/auth.middleware';
 
-const router = Router();
-const listingController = new ListingController();
+const router = express.Router();
 
-// Routes publiques (l'ordre est important!)
-router.get('/public', listingController.getPublicListings);
-router.get('/', listingController.getAll);
-router.get('/:id', listingController.getOne as RequestHandler);
+router.get('/listings/:id', isAuthenticated, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const result = await getListingById(req, res, next);
+  return result;
+});
+router.get('/agent/listings', isAuthenticated, getListingsByAgent);
+router.delete('/listings/:id', isAuthenticated, removeListing);
+router.get('/public', getPublicListings);
 
-// Routes protégées
-router.post('/', 
-    authMiddleware as RequestHandler,
-    isAgent as RequestHandler,
-    listingController.create as RequestHandler
-);
-
-router.put('/:id',
-    authMiddleware as RequestHandler,
-    listingController.update as RequestHandler
-);
-
-router.delete('/:id',
-    authMiddleware as RequestHandler,
-    listingController.delete as RequestHandler
-);
-
-export default router; 
+export default router;

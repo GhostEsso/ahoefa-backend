@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { UserInput, UpdateUserInput } from '../types';
 import bcrypt from 'bcrypt';
+import { UserRole } from '../types';
 
 const prisma = new PrismaClient();
 
@@ -24,6 +25,9 @@ export class UserController {
         data: {
           ...userData,
           password: hashedPassword,
+          role: userData.role || UserRole.USER,
+          agentStatus: userData.role?.includes('AGENT') ? 'PENDING' : undefined,
+          isPremium: userData.role === 'AGENT_PREMIUM'
         },
         select: {
           id: true,

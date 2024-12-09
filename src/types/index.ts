@@ -64,3 +64,5 @@ declare global {
     }
   }
 }
+
+export { UserRole };

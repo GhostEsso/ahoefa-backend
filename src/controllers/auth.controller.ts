@@ -53,4 +53,20 @@ export class AuthController {
             res.status(500).json({ message: "Erreur lors de la connexion" });
         }
     };
+
+    updateUserRole = async (req: Request, res: Response): Promise<void> => {
+        try {
+            const { userId, role } = req.body;
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: { role: UserRole.AGENT },
+            });
+
+            res.status(200).json({ message: "Rôle de l'utilisateur mis à jour" });
+        } catch (error) {
+            console.error('Erreur:', error);
+            res.status(500).json({ message: "Erreur lors de la mise à jour du rôle" });
+        }
+    };
 } 
