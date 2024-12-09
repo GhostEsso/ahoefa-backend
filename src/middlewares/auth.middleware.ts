@@ -1,55 +1,42 @@
 import { Request, Response, NextFunction } from 'express';
+import { User, UserRole } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, UserRole, User as PrismaUser } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
-export interface AuthRequest extends Request {
-    user?: PrismaUser;
-}
-
-interface JwtPayload {
-    id: string;
-    email: string;
-    role: UserRole;
-}
+import { prisma } from '../prismaClient';
 
 type CustomRequestHandler = (
-    req: Request,
-    res: Response,
-    next: NextFunction
+  req: Request,
+  res: Response,
+  next: NextFunction
 ) => Promise<void> | void;
 
-export const authMiddleware: CustomRequestHandler = async (req, res, next) => {
-    try {
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
-            res.status(401).json({ message: 'Token manquant' });
-            return;
-        }
+interface JwtPayload {
+  userId: string;
+}
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-        
-        const user = await prisma.user.findUnique({ 
-            where: { id: decoded.id } 
-        });
+interface AuthRequest extends Request {
+  user?: User;
+}
 
-        if (!user) {
-            res.status(401).json({ message: 'Utilisateur non trouvé' });
-            return;
-        }
-
-        req.user = {
-            id: user.id,
-            email: user.email,
-            role: user.role
-        };
-        next();
-    } catch (error) {
-        res.status(401).json({ message: 'Token invalide' });
-        return;
+export const authMiddleware = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ message: 'Token manquant' });
+      return;
     }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+
+    if (!decoded) {
+      res.status(401).json({ message: 'Token invalide' });
+      return;
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const isAdmin: CustomRequestHandler = async (req, res, next) => {
