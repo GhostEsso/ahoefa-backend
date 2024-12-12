@@ -42,32 +42,56 @@ export const removeListing = async (req: Request, res: Response, next: NextFunct
 
 export const getPublicListings = async (req: Request, res: Response) => {
   try {
-    const listings = await prisma.listing.findMany({
-      where: {
-        available: true,
-        user: {
-          OR: [
-            { role: 'AGENT' },
-            { role: 'AGENT_PREMIUM' }
-          ]
-        }
-      },
-      include: {
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            isPremium: true
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 12;
+    const skip = (page - 1) * limit;
+
+    const [listings, total] = await Promise.all([
+      prisma.listing.findMany({
+        where: {
+          available: true,
+          user: {
+            OR: [
+              { role: 'AGENT' },
+              { role: 'AGENT_PREMIUM' }
+            ]
+          }
+        },
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              isPremium: true
+            }
+          }
+        },
+        orderBy: [
+          { user: { isPremium: 'desc' } },
+          { createdAt: 'desc' }
+        ],
+        skip,
+        take: limit
+      }),
+      prisma.listing.count({
+        where: {
+          available: true,
+          user: {
+            OR: [
+              { role: 'AGENT' },
+              { role: 'AGENT_PREMIUM' }
+            ]
           }
         }
-      },
-      orderBy: [
-        { user: { isPremium: 'desc' } },
-        { createdAt: 'desc' }
-      ]
-    });
+      })
+    ]);
     
-    res.json(listings);
+    res.json({
+      listings,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit)
+    });
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la récupération des propriétés" });
   }
